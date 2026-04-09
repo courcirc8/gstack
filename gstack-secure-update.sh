@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
 # ============================================================================
 # gstack-secure-update.sh
@@ -7,7 +7,7 @@ set -euo pipefail
 # ============================================================================
 
 # --- Configuration -----------------------------------------------------------
-UPSTREAM_REPO="https://github.com/anthropics/gstack.git"
+UPSTREAM_REPO="git@github.com:garrytan/gstack.git"
 AUDIT_DIR="$HOME/.gstack-dev/upstream-audit"
 SKILLS_DIR="$HOME/.claude/skills/gstack"
 REPORT_DIR="$HOME/.gstack-dev/audit-reports"
@@ -160,12 +160,15 @@ phase_diff() {
         echo ""
     fi
 
-    # Show changed file list
+    # Show changed file list (abbreviated)
     echo ""
-    info "Changed files:"
-    grep '^diff ' "$DIFF_FILE" | sed 's|^diff -ruN [^ ]* ||' | while read -r f; do
+    local file_list
+    file_list=$(grep '^diff ' "$DIFF_FILE" | sed 's|.*/upstream-audit/||' | head -30)
+    info "Changed files (top 30 of $changed_files):"
+    echo "$file_list" | while read -r f; do
         echo "  - $f"
     done
+    [[ "$changed_files" -gt 30 ]] && echo "  ... and $((changed_files - 30)) more"
     echo ""
 }
 
