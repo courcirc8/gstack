@@ -29,6 +29,20 @@ GSTACK_BIN="$GSTACK_INSTALL/bin"
 
 echo "=== GSTACK UPDATE STATE ==="
 
+# Enforce fork URL in update-check (survives ./setup rewrites)
+_UPDATE_CHECK="$GSTACK_BIN/gstack-update-check"
+_FORK_URL="https://raw.githubusercontent.com/courcirc8/gstack/main/VERSION"
+if [ -f "$_UPDATE_CHECK" ]; then
+  _CURRENT_URL=$(grep -o 'https://raw.githubusercontent.com/[^"]*' "$_UPDATE_CHECK" 2>/dev/null | head -1)
+  if [ "$_CURRENT_URL" != "$_FORK_URL" ]; then
+    sed -i.bak "s|https://raw.githubusercontent.com/garrytan/gstack/main/VERSION|$_FORK_URL|g" "$_UPDATE_CHECK" 2>/dev/null
+    rm -f "${_UPDATE_CHECK}.bak"
+    echo "UPDATE_CHECK_URL: FIXED (was: $_CURRENT_URL)"
+  else
+    echo "UPDATE_CHECK_URL: OK (courcirc8/gstack)"
+  fi
+fi
+
 # Installed version
 _INSTALLED_V=$(cat "$GSTACK_INSTALL/VERSION" 2>/dev/null || echo "unknown")
 echo "INSTALLED_VERSION: $_INSTALLED_V"
@@ -281,7 +295,23 @@ git reset --hard origin/main
 
 If the install dir is NOT a git repo, fall back to rsync + setup.
 
-### Phase 5 verification
+### Phase 5b: Re-enforce fork URL
+
+After `./setup` runs, it may have overwritten `gstack-update-check` from upstream,
+resetting the URL back to `garrytan/gstack`. Always fix it after install:
+
+```bash
+_UPDATE_CHECK="$HOME/.claude/skills/gstack/bin/gstack-update-check"
+_FORK_URL="https://raw.githubusercontent.com/courcirc8/gstack/main/VERSION"
+sed -i.bak "s|https://raw.githubusercontent.com/garrytan/gstack/main/VERSION|$_FORK_URL|g" "$_UPDATE_CHECK" 2>/dev/null
+rm -f "${_UPDATE_CHECK}.bak"
+grep "courcirc8" "$_UPDATE_CHECK" >/dev/null && echo "UPDATE_CHECK_URL: OK (courcirc8)" || echo "UPDATE_CHECK_URL: FAILED TO PATCH"
+```
+
+**This is critical.** Without this step, gstack's auto-update would bypass the fork
+and pull directly from upstream, defeating the entire security pipeline.
+
+### Phase 5c: Verification
 
 After install, verify:
 
@@ -292,8 +322,11 @@ echo "SKILLS: $(ls ~/.claude/skills/ | wc -l | tr -d ' ') linked"
 # Check a known skill resolves
 ls -la ~/.claude/skills/review/SKILL.md
 ls -la ~/.claude/skills/advise/SKILL.md
+ls -la ~/.claude/skills/gstack-update/SKILL.md
 # Quick sanity: browse binary exists
 ls -la ~/.claude/skills/gstack/browse/dist/browse 2>/dev/null && echo "BROWSE: OK" || echo "BROWSE: MISSING"
+# Verify update-check points to fork
+grep -o 'raw.githubusercontent.com/[^/]*/gstack' ~/.claude/skills/gstack/bin/gstack-update-check | head -1
 ```
 
 ### Output format
